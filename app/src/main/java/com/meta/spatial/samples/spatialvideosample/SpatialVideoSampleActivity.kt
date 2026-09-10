@@ -7,12 +7,10 @@
 
 package com.spectrum.spectrumsports
 
-import android.Manifest
 import android.animation.ObjectAnimator
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.os.CountDownTimer
@@ -26,6 +24,8 @@ import android.widget.SeekBar
 import android.widget.TextView
 import androidx.core.app.ActivityCompat
 import androidx.media3.common.MediaItem
+import androidx.media3.common.C
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.audio.BaseAudioProcessor
@@ -34,6 +34,8 @@ import androidx.media3.common.audio.ChannelMixingMatrix
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.Renderer
 import androidx.media3.exoplayer.SeekParameters
 import androidx.media3.exoplayer.audio.AudioRendererEventListener
@@ -58,7 +60,6 @@ import com.meta.spatial.isdk.IsdkPanelGrabHandle
 import com.meta.spatial.isdk.updateIsdkComponentProperties
 import com.meta.spatial.ovrmetrics.OVRMetricsDataModel
 import com.meta.spatial.ovrmetrics.OVRMetricsFeature
-import com.meta.spatial.runtime.AlphaMode
 import com.meta.spatial.runtime.ButtonBits
 import com.meta.spatial.runtime.HitInfo
 import com.meta.spatial.runtime.InputListener
@@ -66,11 +67,8 @@ import com.meta.spatial.runtime.PanelSceneObject
 import com.meta.spatial.runtime.ReferenceSpace
 import com.meta.spatial.runtime.SceneAudioAsset
 import com.meta.spatial.runtime.SceneMaterial
-import com.meta.spatial.runtime.SceneMesh
 import com.meta.spatial.runtime.SceneObject
-import com.meta.spatial.runtime.SceneTexture
 import com.meta.spatial.runtime.StereoMode
-import com.meta.spatial.runtime.TriangleMesh
 import com.meta.spatial.toolkit.ActivityPanelRegistration
 import com.meta.spatial.toolkit.AppSystemActivity
 import com.meta.spatial.toolkit.AvatarSystem
@@ -144,6 +142,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
     private var isShuttingDown: Boolean = false
     private var playerReleased: Boolean = false
+    private var playbackStatus: String? = null
 
     override fun registerFeatures(): List<SpatialFeature> {
         val features = mutableListOf<SpatialFeature>(VRFeature(this))
@@ -221,18 +220,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     }
 
     private fun requestPermissions() {
-        val permissionsNeeded =
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                arrayOf(
-                    "com.oculus.permission.USE_SCENE",
-                    Manifest.permission.READ_MEDIA_VIDEO,
-                )
-            } else {
-                arrayOf(
-                    "com.oculus.permission.USE_SCENE",
-                    Manifest.permission.READ_EXTERNAL_STORAGE,
-                )
-            }
+        val permissionsNeeded = arrayOf("com.oculus.permission.USE_SCENE")
 
         ActivityCompat.requestPermissions(this, permissionsNeeded, PERMISSIONS_REQUEST_CODE)
     }
@@ -370,144 +358,15 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             MediaPanelSettings(
                 //shape = QuadShapeOptions(width = MR_SCREEN_WIDTH, height = MR_SCREEN_HEIGHT),
                 shape = Equirect180ShapeOptions(5.0f),
-                display = PixelDisplayOptions(width = 7168, height = 3584),
-                rendering = MediaPanelRenderOptions(stereoMode = StereoMode.LeftRight),
+                display = PixelDisplayOptions(width = 7680, height = 3840),
+                // DRM frames must go directly to a secure compositor layer.
+                rendering = MediaPanelRenderOptions(isDRM = true, stereoMode = StereoMode.LeftRight),
             )
         val panelSceneObject =
             PanelSceneObject(
                 scene,
                 videoPanelEntity,
-                settings.toPanelConfigOptions().apply {
-                    sceneMeshCreator = { texture: SceneTexture ->
-                        val halfHeight = height / 2f
-                        val halfWidth = width / 2f
-                        val halfDepth = 0.1f
-                        val rounding = 0.075f
-                        val triMesh =
-                            TriangleMesh(
-                                8,
-                                18,
-                                intArrayOf(6, 6, 12, 6, 0, 6),
-                                arrayOf(
-                                    SceneMaterial(
-                                        texture,
-                                        AlphaMode.TRANSLUCENT,
-                                        "data/shaders/spatial/reflect",
-                                    )
-                                        .apply {
-                                            setStereoMode(stereoMode)
-                                            setUnlit(true)
-                                        },
-                                    SceneMaterial(
-                                        texture,
-                                        AlphaMode.TRANSLUCENT,
-                                        "data/shaders/spatial/shadow",
-                                    )
-                                        .apply { setUnlit(true) },
-                                    SceneMaterial(
-                                        texture,
-                                        AlphaMode.HOLE_PUNCH,
-                                        SceneMaterial.HOLE_PUNCH_SHADER,
-                                    )
-                                        .apply {
-                                            setStereoMode(stereoMode)
-                                            setUnlit(true)
-                                        },
-                                ),
-                            )
-                        triMesh.updateGeometry(
-                            0,
-                            floatArrayOf(
-                                -halfWidth,
-                                -halfHeight,
-                                0f,
-                                halfWidth,
-                                -halfHeight,
-                                0f,
-                                halfWidth,
-                                halfHeight,
-                                0f,
-                                -halfWidth,
-                                halfHeight,
-                                0f,
-                                // shadow
-                                -halfWidth,
-                                -halfHeight,
-                                halfDepth,
-                                halfWidth,
-                                -halfHeight,
-                                halfDepth,
-                                halfWidth,
-                                -halfHeight,
-                                -halfDepth,
-                                -halfWidth,
-                                -halfHeight,
-                                -halfDepth,
-                            ),
-                            floatArrayOf(
-                                0f,
-                                0f,
-                                1f,
-                                0f,
-                                0f,
-                                1f,
-                                0f,
-                                0f,
-                                1f,
-                                0f,
-                                0f,
-                                1f,
-                                0f,
-                                0f,
-                                1f,
-                                0f,
-                                0f,
-                                1f,
-                                0f,
-                                0f,
-                                1f,
-                                0f,
-                                0f,
-                                1f,
-                            ),
-                            floatArrayOf(
-                                // front
-                                0f,
-                                1f,
-                                1f,
-                                1f,
-                                1f,
-                                0f,
-                                0f,
-                                0f,
-                                // shadow
-                                halfWidth - rounding,
-                                halfDepth - rounding,
-                                halfWidth - rounding,
-                                halfDepth - rounding,
-                                halfWidth - rounding,
-                                halfDepth - rounding,
-                                halfWidth - rounding,
-                                halfDepth - rounding,
-                            ),
-                            intArrayOf(
-                                Color.WHITE,
-                                Color.WHITE,
-                                Color.WHITE,
-                                Color.WHITE,
-                                Color.WHITE,
-                                Color.WHITE,
-                                Color.WHITE,
-                                Color.WHITE,
-                            ),
-                        )
-                        triMesh.updatePrimitives(
-                            0,
-                            intArrayOf(0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2, 4, 6, 5, 4, 7, 6),
-                        )
-                        SceneMesh.fromTriangleMesh(triMesh, false)
-                    }
-                },
+                settings.toPanelConfigOptions(),
             )
                 .apply {
                     player.repeatMode = Player.REPEAT_MODE_ONE
@@ -535,8 +394,13 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                                         return
                                     }
 
-                                    setUri?.let { uri -> setVideo(uri) }
-                                    Log.e("ExoPlayer", "Player encountered an error: $error")
+                                    pauseVideo()
+                                    val licenseFailure = generateSequence<Throwable>(error) { it.cause }
+                                        .filterIsInstance<SpatialGenLicenseException>().firstOrNull()
+                                    playbackStatus = licenseFailure?.message
+                                        ?: "Playback failed: ${error.errorCodeName}. Press play to retry."
+                                    updateTimestampText()
+                                    Log.e(TAG, "Playback failed: ${error.errorCodeName}; ${licenseFailure?.message.orEmpty()}")
                                 }
                             }
                         )
@@ -604,13 +468,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                         }
                     )
 
-                    // Default media
-                    Movie.fromRawVideo("custom2", "Custom")?.let { movie -> setVideo(movie.uri) }
-
-                    val handler = Handler(Looper.getMainLooper())
-                    handler.postDelayed(
+                    mainHandler.postDelayed(
                         object : Runnable {
                             override fun run() {
+                                if (isShuttingDown || playerReleased) return
                                 if (isPlaying && !isSeeking) {
                                     seekBar.thenAccept {
                                         it.progress = player.currentPosition.toInt()
@@ -619,7 +480,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
                                 updateTimestampText()
 
-                                handler.postDelayed(this, 500)
+                                mainHandler.postDelayed(this, 500)
                             }
                         },
                         500,
@@ -629,11 +490,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
         player.setVideoSurface(panelSceneObject.getSurface())
 
-        MoviePanel.viewModel.findMovieByFileName("bt2020_10min_demo_100mbps.mp4")?.let { movie ->
-            Log.d(TAG, "Setting default local video after surface is ready: ${movie.uri}")
-            setVideo(movie.uri)
-            playVideo()
-        }
+        setVideo(Uri.parse(SpatialGenPlaybackConfig.STREAM_URL))
+        playVideo()
 
         systemManager
             .findSystem<SceneObjectSystem>()
@@ -797,14 +655,35 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
     public fun setVideo(video: Uri) {
         setUri = video
-        val mediaItem = MediaItem.fromUri(video)
-        // Set the media item to be played.
-        player.setMediaItem(mediaItem)
-        // Prepare the player.
+        if (SpatialGenPlaybackConfig.API_KEY.isBlank()) {
+            playbackStatus = "Set SPATIALGEN_API_KEY and rebuild"
+            updateTimestampText()
+            animateControllerVisibility(true)
+            return
+        }
+        playbackStatus = null
+        val mediaItem = MediaItem.Builder()
+            .setUri(video)
+            .setMimeType(MimeTypes.APPLICATION_M3U8)
+            .setDrmConfiguration(MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
+                .setLicenseUri(SpatialGenPlaybackConfig.LICENSE_URL)
+                .setMultiSession(true)
+                .build())
+            .build()
+        // CDN requests have no app key; only the license callback sends it to SpatialGen DRM.
+        val source = HlsMediaSource.Factory(DefaultHttpDataSource.Factory()
+            .setConnectTimeoutMs(15_000).setReadTimeoutMs(30_000))
+            .setDrmSessionManagerProvider { SpatialGenDrm.createSessionManager() }
+            .createMediaSource(mediaItem)
+        player.setMediaSource(source)
         player.prepare()
     }
 
     public fun playVideo() {
+        if (playerReleased || player.mediaItemCount == 0) return
+        playbackStatus = null
+        // A deliberate user retry gets a fresh, bounded Media3 attempt.
+        if (player.playerError != null) player.prepare()
         player.play()
         isPlaying = true
         playPauseButton.thenAccept {
@@ -979,7 +858,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             }
 
         timestampText.thenAccept {
-            it.text = "${formatTimestamp(current)} / ${formatTimestamp(duration)}"
+            it.text = playbackStatus ?: "${formatTimestamp(current)} / ${formatTimestamp(duration)}"
         }
     }
 
@@ -1006,6 +885,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     private fun beginAppShutdownCleanup(includeSpatialReset: Boolean) {
         if (isShuttingDown) return
         isShuttingDown = true
+        mainHandler.removeCallbacksAndMessages(null)
 
         Log.d(TAG, "Beginning app shutdown cleanup. includeSpatialReset=$includeSpatialReset")
 
@@ -1086,6 +966,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     private fun quitApplicationHard() {
         if (isShuttingDown) return
         isShuttingDown = true
+        mainHandler.removeCallbacksAndMessages(null)
 
         Log.d(TAG, "Hard quitting application")
 

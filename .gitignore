@@ -6,6 +6,8 @@
 
 # Gradle / Kotlin build state
 .gradle/
+.gradle-user/
+.android-sdk/
 .kotlin/
 **/build/
 out/

@@ -5,12 +5,24 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import java.util.Properties
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.jetbrains.kotlin.android)
   alias(libs.plugins.meta.spatial.plugin)
   alias(libs.plugins.jetbrains.kotlin.plugin.compose)
 }
+
+val localConfig = Properties().apply {
+  val file = rootProject.file("local.properties")
+  if (file.exists()) file.inputStream().use { load(it) }
+}
+val spatialGenApiKey = providers.gradleProperty("SPATIALGEN_API_KEY")
+  .orElse(providers.environmentVariable("SPATIALGEN_API_KEY"))
+  .getOrElse(localConfig.getProperty("SPATIALGEN_API_KEY", ""))
+val escapedSpatialGenApiKey = spatialGenApiKey.replace("\\", "\\\\")
+  .replace("\"", "\\\"").replace("\r", "\\r").replace("\n", "\\n")
 
 android {
   namespace = "com.spectrum.spectrumsports"
@@ -27,6 +39,7 @@ android {
     versionName = "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    buildConfigField("String", "SPATIALGEN_API_KEY", "\"$escapedSpatialGenApiKey\"")
 
     // Update the ndkVersion to the right version for your app
     // ndkVersion = "27.0.12077973"
@@ -61,6 +74,7 @@ dependencies {
   implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.compose.foundation.layout)
   testImplementation(libs.junit)
+  testImplementation("org.json:json:20240303")
   androidTestImplementation(libs.androidx.junit)
   androidTestImplementation(libs.androidx.espresso.core)
 
@@ -89,6 +103,7 @@ dependencies {
   debugImplementation(libs.androidx.ui.test.manifest)
 
   implementation("androidx.media3:media3-exoplayer:1.4.1")
+  implementation("androidx.media3:media3-exoplayer-hls:1.4.1")
   implementation("androidx.media3:media3-ui:1.4.1")
   implementation("androidx.navigation:navigation-compose:2.8.2")
 }
