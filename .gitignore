@@ -1,0 +1,80 @@
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Gradle / Kotlin build state
+.gradle/
+.kotlin/
+**/build/
+out/
+
+# Android generated files
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.apks
+*.aab
+*.dex
+*.class
+*.hprof
+
+# Meta Spatial SDK local/generated files
+app/scenes/Main.localsettings
+app/scenes/*.localsettings
+app/src/main/assets/scenes/
+
+# Signing keys and local secrets
+keystore.properties
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+
+# Logs and crash reports
+*.log
+hs_err_pid*
+replay_pid*
+
+# OS/editor noise
+.DS_Store
+._*
+.Spotlight-V100/
+.Trashes/
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.vscode/
+*.swp
+*.swo
+*~
+
+# Video/media assets - keep large local/test videos out of git
+*.[mM][pP]4
+*.[mM]4[vV]
+*.[mM][oO][vV]
+*.[aA][vV][iI]
+*.[mM][kK][vV]
+*.[wW][eE][bB][mM]
+*.[fF][lL][vV]
+*.[wW][mM][vV]
+*.[mM][pP][gG]
+*.[mM][pP][eE][gG]
+*.[3][gG][pP]
+*.[3][gG]2
+*.[mM][tT][sS]
+*.[mM]2[tT][sS]
+*.[tT][sS]
+*.[hH]264
+*.[hH]265
+*.[hH][eE][vV][cC]
+*.[yY][uU][vV]
+
+!gradle/wrapper/gradle-wrapper.jar
